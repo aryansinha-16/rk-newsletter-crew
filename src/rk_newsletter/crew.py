@@ -84,9 +84,9 @@ RK GROUP CONTEXT — focus on what matters:
 For each company run a search and collect the top stories. Today is {week_str}.
 
 Return a structured research report: one section per company, 2-4 bullet points each.
-Format: "- [what happened] — [why it matters to RK Group]"
-If no significant news, write "No major news this week." for that company.""",
-            expected_output="Structured research report with one section per company and 2-4 bullet points each.",
+Format: "- [what happened] — [why it matters to RK Group] | URL: [source url]"
+Always include the source URL for each point. If no significant news, write "No major news this week." for that company.""",
+            expected_output="Structured research report with one section per company, 2-4 bullet points each, each with a source URL.",
             agent=self.researcher(),
         )
 
@@ -123,8 +123,8 @@ Use this exact HTML structure and styling:
         <tr><td style="padding:24px 40px;border-bottom:1px solid #eee">
           <h2 style="color:#1a1a2e;margin:0 0 12px;font-size:16px">[COMPANY NAME]</h2>
           <ul style="margin:0;padding-left:20px;color:#444;font-size:14px;line-height:1.8">
-            <li><strong>[what happened]</strong> — [why it matters to RK Group]</li>
-            <li><strong>[what happened]</strong> — [why it matters to RK Group]</li>
+            <li><strong>[what happened]</strong> — [why it matters to RK Group in one sentence] <a href="[source URL]" style="color:#4a90d9;text-decoration:none;font-size:12px">Read more →</a></li>
+            <li><strong>[what happened]</strong> — [why it matters to RK Group in one sentence] <a href="[source URL]" style="color:#4a90d9;text-decoration:none;font-size:12px">Read more →</a></li>
           </ul>
         </td></tr>
         <!-- FOOTER -->
@@ -138,7 +138,8 @@ Use this exact HTML structure and styling:
 </html>
 
 Fill in all 7 company sections with real content from the research. Make the executive summary punchy and specific.
-TONE: Direct. No filler. Write like a founder.
+TONE: Crisp and direct. Max 15 words per bullet. No filler. Write like a founder who reads fast.
+Each bullet MUST end with a "Read more" link using the source URL from the research report.
 Return ONLY the JSON object, no markdown fences.""",
             expected_output='A JSON object with "subject" and "html" keys containing a polished HTML newsletter.',
             agent=self.writer(),
