@@ -35,51 +35,61 @@ def search_news(query: str) -> str:
         return f"Search failed: {e}"
 
 
-@tool("Send email via SendGrid")
-def send_email(to: str, subject: str, body_html: str) -> str:
-    """Send an HTML email via the Railway SendGrid MCP server."""
+def _send_single_email(to: str, subject: str, body_html: str) -> str:
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
         "method": "tools/call",
         "params": {
             "name": "send_email",
-            "arguments": {
-                "to": to,
-                "subject": subject,
-                "body_html": body_html,
-            },
+            "arguments": {"to": to, "subject": subject, "body_html": body_html},
         },
     }
-    try:
-        resp = requests.post(
-            MCP_URL,
-            json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-            },
-            timeout=30,
-            stream=True,
-        )
-        resp.raise_for_status()
+    resp = requests.post(
+        MCP_URL,
+        json=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        },
+        timeout=30,
+        stream=True,
+    )
+    resp.raise_for_status()
 
-        result_data = None
-        for line in resp.iter_lines():
-            if not line:
-                continue
-            decoded = line.decode("utf-8") if isinstance(line, bytes) else line
-            if decoded.startswith("data:"):
-                data_str = decoded[5:].strip()
-                if data_str:
-                    try:
-                        result_data = json.loads(data_str)
-                    except Exception:
-                        pass
+    result_data = None
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        decoded = line.decode("utf-8", errors="replace") if isinstance(line, bytes) else line
+        if decoded.startswith("data:"):
+            data_str = decoded[5:].strip()
+            if data_str:
+                try:
+                    result_data = json.loads(data_str)
+                except Exception:
+                    pass
 
-        if result_data and "error" in result_data:
-            return f"Failed: {result_data['error']}"
+    if result_data and "error" in result_data:
+        return f"Failed: {result_data['error']}"
 
-        return f"Email sent successfully to: {to}"
-    except Exception as e:
-        return f"Send failed: {e}"
+    # Return actual MCP response text
+    if result_data:
+        content = result_data.get("result", {}).get("content", [])
+        if content:
+            return content[0].get("text", f"Sent to {to}")
+    return f"Sent to {to}"
+
+
+@tool("Send email via SendGrid")
+def send_email(to: str, subject: str, body_html: str) -> str:
+    """Send an HTML email to one or more recipients via the Railway SendGrid MCP server. 'to' can be a single address or comma-separated list."""
+    recipients = [r.strip() for r in to.split(",") if r.strip()]
+    results = []
+    for recipient in recipients:
+        try:
+            result = _send_single_email(recipient, subject, body_html)
+            results.append(f"{recipient}: {result}")
+        except Exception as e:
+            results.append(f"{recipient}: Failed — {e}")
+    return "\n".join(results)
