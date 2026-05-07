@@ -25,6 +25,13 @@ class RkNewsletterCrew:
             temperature=0.3,
         )
 
+    def _writer_llm(self) -> LLM:
+        return LLM(
+            model="anthropic/claude-haiku-4-5-20251001",
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
+            temperature=0.4,
+        )
+
     def _week_str(self) -> str:
         return datetime.now().strftime("%B %d, %Y")
 
@@ -49,7 +56,7 @@ class RkNewsletterCrew:
     def writer(self) -> Agent:
         return Agent(
             config=self.agents_config["writer"],  # type: ignore[index]
-            llm=self._llm(),
+            llm=self._writer_llm(),
             verbose=True,
         )
 
@@ -93,17 +100,47 @@ Return a JSON object with exactly two keys:
 1. "subject": "RK Intelligence | Week of {week_str} | [1-line hook from top story]"
 2. "html": complete HTML email body
 
-HTML REQUIREMENTS:
-- White background (#ffffff), dark text (#1a1a1a), Arial sans-serif
-- Header: "RK Group Intelligence" bold, date below
-- EXECUTIVE SUMMARY: 3 sentences, the 3 most important things this week
-- One section per company, 2-3 bullets: what happened + why it matters to RK Group
-- Footer: "RK Group Intelligence | Compiled {week_str} | Confidential"
-- Simple inline styles, mobile-friendly
+Use this exact HTML structure and styling:
 
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:20px 0">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+        <!-- HEADER -->
+        <tr><td style="background:#1a1a2e;padding:30px 40px;text-align:center">
+          <h1 style="color:#ffffff;margin:0;font-size:24px;letter-spacing:2px">RK GROUP INTELLIGENCE</h1>
+          <p style="color:#a0a0c0;margin:8px 0 0;font-size:14px">Week of {week_str}</p>
+        </td></tr>
+        <!-- EXECUTIVE SUMMARY -->
+        <tr><td style="background:#f8f9ff;padding:24px 40px;border-left:4px solid #4a90d9">
+          <h2 style="color:#1a1a2e;margin:0 0 12px;font-size:13px;letter-spacing:1px;text-transform:uppercase">Executive Summary</h2>
+          <p style="color:#333;margin:0;font-size:15px;line-height:1.7">[3 sentence summary of the 3 most important things this week]</p>
+        </td></tr>
+        <!-- COMPANY SECTIONS (repeat for each company) -->
+        <tr><td style="padding:24px 40px;border-bottom:1px solid #eee">
+          <h2 style="color:#1a1a2e;margin:0 0 12px;font-size:16px">[COMPANY NAME]</h2>
+          <ul style="margin:0;padding-left:20px;color:#444;font-size:14px;line-height:1.8">
+            <li><strong>[what happened]</strong> — [why it matters to RK Group]</li>
+            <li><strong>[what happened]</strong> — [why it matters to RK Group]</li>
+          </ul>
+        </td></tr>
+        <!-- FOOTER -->
+        <tr><td style="background:#1a1a2e;padding:20px 40px;text-align:center">
+          <p style="color:#a0a0c0;margin:0;font-size:12px">RK Group Intelligence | Compiled {week_str} | Confidential</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+
+Fill in all 7 company sections with real content from the research. Make the executive summary punchy and specific.
 TONE: Direct. No filler. Write like a founder.
-Return ONLY the JSON, no markdown fences.""",
-            expected_output='A JSON object with "subject" and "html" keys.',
+Return ONLY the JSON object, no markdown fences.""",
+            expected_output='A JSON object with "subject" and "html" keys containing a polished HTML newsletter.',
             agent=self.writer(),
             context=[self.research_task()],
         )
