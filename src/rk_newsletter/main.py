@@ -1,7 +1,7 @@
 import sys
 import os
 from dotenv import load_dotenv
-from .crew import build_crew
+from rk_newsletter.crew import build_crew
 
 load_dotenv()
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")

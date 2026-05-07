@@ -1,8 +1,8 @@
 import os
 from datetime import datetime
 from crewai import Agent, Task, Crew, Process, LLM
-from .tools import search_news, send_email
-from .config import COMPANIES, RK_GROUP_CONTEXT
+from rk_newsletter.tools import search_news, send_email
+from rk_newsletter.config import COMPANIES, RK_GROUP_CONTEXT
 
 
 def build_crew(recipients: list[str]) -> Crew:
