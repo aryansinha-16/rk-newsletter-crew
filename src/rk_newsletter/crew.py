@@ -1,60 +1,73 @@
 import os
 from datetime import datetime
 from crewai import Agent, Task, Crew, Process, LLM
+from crewai.project import CrewBase, agent, crew, task, before_kickoff
+from crewai.agents.agent_builder.base_agent import BaseAgent
+from typing import List
 from rk_newsletter.tools import search_news, send_email
 from rk_newsletter.config import COMPANIES, RK_GROUP_CONTEXT
 
 
-def build_crew(recipients: list[str]) -> Crew:
-    week_str = datetime.now().strftime("%B %d, %Y")
-    company_list = "\n".join(f"- {c}" for c in COMPANIES)
-    recipient_str = ", ".join(recipients)
+@CrewBase
+class RkNewsletterCrew:
+    """RK Group Weekly Intelligence Newsletter Crew."""
 
-    llm = LLM(
-        model="groq/llama-3.3-70b-versatile",
-        api_key=os.getenv("GROQ_API_KEY"),
-        temperature=0.3,
-    )
+    agents: List[BaseAgent]
+    tasks: List[Task]
 
-    researcher = Agent(
-        role="Market Intelligence Researcher",
-        goal="Find the most relevant business news from the past 7 days for each company in the RK Group watchlist.",
-        backstory=(
-            "You are a sharp market intelligence analyst covering Indian e-commerce, retail, "
-            "and brand distribution. You know what moves the needle for a brand distributor "
-            "and marketplace operator. You search fast and filter ruthlessly."
-        ),
-        tools=[search_news],
-        llm=llm,
-        verbose=True,
-        max_iter=15,
-    )
+    agents_config = "config/agents.yaml"
+    tasks_config = "config/tasks.yaml"
 
-    writer = Agent(
-        role="Executive Newsletter Editor",
-        goal="Turn raw research into a crisp, well-formatted HTML newsletter a founder can read in 90 seconds.",
-        backstory=(
-            "You write for founders and senior leaders who have no patience for fluff. "
-            "Every word earns its place. You produce clean HTML emails with maximum signal."
-        ),
-        llm=llm,
-        verbose=True,
-    )
+    def _llm(self) -> LLM:
+        return LLM(
+            model="groq/llama-3.3-70b-versatile",
+            api_key=os.getenv("GROQ_API_KEY"),
+            temperature=0.3,
+        )
 
-    sender = Agent(
-        role="Email Delivery Agent",
-        goal="Send the newsletter HTML to all recipients using the send_email tool.",
-        backstory=(
-            "You are responsible for reliable email delivery. "
-            "You call the send_email tool with the exact subject and HTML body provided."
-        ),
-        tools=[send_email],
-        llm=llm,
-        verbose=True,
-    )
+    def _week_str(self) -> str:
+        return datetime.now().strftime("%B %d, %Y")
 
-    research_task = Task(
-        description=f"""Search for the latest news (past 7 days) on each of these companies:
+    def _company_list(self) -> str:
+        return "\n".join(f"- {c}" for c in COMPANIES)
+
+    def _recipient_str(self) -> str:
+        env_val = os.getenv("NEWSLETTER_RECIPIENTS", "aryan@valuecart.in")
+        return ", ".join(r.strip() for r in env_val.split(",") if r.strip())
+
+    @agent
+    def researcher(self) -> Agent:
+        return Agent(
+            config=self.agents_config["researcher"],  # type: ignore[index]
+            tools=[search_news],
+            llm=self._llm(),
+            verbose=True,
+            max_iter=15,
+        )
+
+    @agent
+    def writer(self) -> Agent:
+        return Agent(
+            config=self.agents_config["writer"],  # type: ignore[index]
+            llm=self._llm(),
+            verbose=True,
+        )
+
+    @agent
+    def sender(self) -> Agent:
+        return Agent(
+            config=self.agents_config["sender"],  # type: ignore[index]
+            tools=[send_email],
+            llm=self._llm(),
+            verbose=True,
+        )
+
+    @task
+    def research_task(self) -> Task:
+        week_str = self._week_str()
+        company_list = self._company_list()
+        return Task(
+            description=f"""Search for the latest news (past 7 days) on each of these companies:
 
 {company_list}
 
@@ -66,12 +79,15 @@ For each company run a search and collect the top stories. Today is {week_str}.
 Return a structured research report: one section per company, 2-4 bullet points each.
 Format: "- [what happened] — [why it matters to RK Group]"
 If no significant news, write "No major news this week." for that company.""",
-        expected_output="Structured research report with one section per company and 2-4 bullet points each.",
-        agent=researcher,
-    )
+            expected_output="Structured research report with one section per company and 2-4 bullet points each.",
+            agent=self.researcher(),
+        )
 
-    write_task = Task(
-        description=f"""Using the research report, write the RK Group Intelligence Newsletter for the week of {week_str}.
+    @task
+    def write_task(self) -> Task:
+        week_str = self._week_str()
+        return Task(
+            description=f"""Using the research report, write the RK Group Intelligence Newsletter for the week of {week_str}.
 
 Return a JSON object with exactly two keys:
 1. "subject": "RK Intelligence | Week of {week_str} | [1-line hook from top story]"
@@ -87,13 +103,16 @@ HTML REQUIREMENTS:
 
 TONE: Direct. No filler. Write like a founder.
 Return ONLY the JSON, no markdown fences.""",
-        expected_output='A JSON object with "subject" and "html" keys.',
-        agent=writer,
-        context=[research_task],
-    )
+            expected_output='A JSON object with "subject" and "html" keys.',
+            agent=self.writer(),
+            context=[self.research_task()],
+        )
 
-    send_task = Task(
-        description=f"""Send the newsletter to: {recipient_str}
+    @task
+    def send_task(self) -> Task:
+        recipient_str = self._recipient_str()
+        return Task(
+            description=f"""Send the newsletter to: {recipient_str}
 
 Parse the JSON from the previous task to get the subject and HTML body.
 Call send_email with:
@@ -102,14 +121,16 @@ Call send_email with:
 - body_html: the html from the JSON
 
 Report whether the email was sent successfully.""",
-        expected_output="Confirmation that the email was sent successfully.",
-        agent=sender,
-        context=[write_task],
-    )
+            expected_output="Confirmation that the email was sent successfully.",
+            agent=self.sender(),
+            context=[self.write_task()],
+        )
 
-    return Crew(
-        agents=[researcher, writer, sender],
-        tasks=[research_task, write_task, send_task],
-        process=Process.sequential,
-        verbose=True,
-    )
+    @crew
+    def crew(self) -> Crew:
+        return Crew(
+            agents=self.agents,
+            tasks=self.tasks,
+            process=Process.sequential,
+            verbose=True,
+        )
