@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rk_newsletter"
+version = "0.1.0"
+description = "RK Group Weekly Intelligence Newsletter — CrewAI"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "crewai[tools]>=1.14.4",
+    "litellm>=1.83.0",
+    "requests>=2.32.3",
+    "python-dotenv>=1.0.1",
+]
+
+[project.scripts]
+rk_newsletter = "rk_newsletter.main:run"
+
+[tool.crewai]
+type = "crew"

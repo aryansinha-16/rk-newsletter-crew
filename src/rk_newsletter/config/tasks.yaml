@@ -1,0 +1,28 @@
+research_task:
+  description: >
+    Search for the latest news (past 7 days) on each company in the RK Group watchlist.
+    For each company run a search and collect the top stories.
+    Return a structured research report: one section per company, 2-4 bullet points each.
+    Format: "- [what happened] — [why it matters to RK Group]"
+    If no significant news, write "No major news this week." for that company.
+  expected_output: Structured research report with one section per company and 2-4 bullet points each.
+  agent: researcher
+
+write_task:
+  description: >
+    Using the research report, write the RK Group Intelligence Newsletter for this week.
+    Return a JSON object with exactly two keys:
+    1. "subject": email subject line
+    2. "html": complete HTML email body
+    Return ONLY the JSON, no markdown fences.
+  expected_output: A JSON object with "subject" and "html" keys.
+  agent: writer
+
+send_task:
+  description: >
+    Send the newsletter to all recipients.
+    Parse the JSON from the previous task to get the subject and HTML body.
+    Call send_email with the to, subject, and body_html arguments.
+    Report whether the email was sent successfully.
+  expected_output: Confirmation that the email was sent successfully.
+  agent: sender
