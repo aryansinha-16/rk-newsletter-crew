@@ -4,8 +4,8 @@ from crewai import Agent, Task, Crew, Process, LLM
 from crewai.project import CrewBase, agent, crew, task, before_kickoff
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
-from rk_newsletter.tools import search_news, send_email
-from rk_newsletter.config import COMPANIES, RK_GROUP_CONTEXT
+from rk_newsletter.tools import search_news, fetch_rss_news, send_email
+from rk_newsletter.config import COMPANIES
 
 
 @CrewBase
@@ -46,10 +46,10 @@ class RkNewsletterCrew:
     def researcher(self) -> Agent:
         return Agent(
             config=self.agents_config["researcher"],  # type: ignore[index]
-            tools=[search_news],
+            tools=[search_news, fetch_rss_news],
             llm=self._llm(),
             verbose=True,
-            max_iter=15,
+            max_iter=20,
         )
 
     @agent
@@ -78,15 +78,22 @@ class RkNewsletterCrew:
 
 {company_list}
 
-RK GROUP CONTEXT — focus on what matters:
-{RK_GROUP_CONTEXT}
+Today is {week_str}.
 
-For each company run a search and collect the top stories. Today is {week_str}.
+For each company:
+1. Use search_news to find recent Google News articles
+2. Use fetch_rss_news to find articles from Inc42, YourStory, Entrackr, and Mint
+3. Combine the best 2-4 stories per company
 
-Return a structured research report: one section per company, 2-4 bullet points each.
-Format: "- [what happened] — [why it matters to RK Group] | URL: [source url]"
-Always include the source URL for each point. If no significant news, write "No major news this week." for that company.""",
-            expected_output="Structured research report with one section per company, 2-4 bullet points each, each with a source URL.",
+STRICT RULES — no exceptions:
+- Only report stories you actually found via the tools. Never invent or assume news.
+- Only include URLs that were returned by the tools. Never generate or guess a URL.
+- If no news found for a company, write exactly: "No news found this week."
+
+Return a structured research report, one section per company:
+Format per bullet: "- [headline/what happened] | SOURCE: [publication name] | URL: [exact url from tool]"
+""",
+            expected_output="Structured research report: one section per company, 2-4 bullets each with exact source name and URL from the tools.",
             agent=self.researcher(),
         )
 
@@ -123,8 +130,8 @@ Use this exact HTML structure and styling:
         <tr><td style="padding:24px 40px;border-bottom:1px solid #eee">
           <h2 style="color:#1a1a2e;margin:0 0 12px;font-size:16px">[COMPANY NAME]</h2>
           <ul style="margin:0;padding-left:20px;color:#444;font-size:14px;line-height:1.8">
-            <li><strong>[what happened]</strong> — [why it matters to RK Group in one sentence] <a href="[source URL]" style="color:#4a90d9;text-decoration:none;font-size:12px">Read more →</a></li>
-            <li><strong>[what happened]</strong> — [why it matters to RK Group in one sentence] <a href="[source URL]" style="color:#4a90d9;text-decoration:none;font-size:12px">Read more →</a></li>
+            <li><strong>[crisp headline — max 15 words]</strong> <a href="[EXACT URL from research report]" style="color:#4a90d9;text-decoration:none;font-size:12px">Read more →</a></li>
+            <li><strong>[crisp headline — max 15 words]</strong> <a href="[EXACT URL from research report]" style="color:#4a90d9;text-decoration:none;font-size:12px">Read more →</a></li>
           </ul>
         </td></tr>
         <!-- FOOTER -->
@@ -137,9 +144,13 @@ Use this exact HTML structure and styling:
 </body>
 </html>
 
-Fill in all 7 company sections with real content from the research. Make the executive summary punchy and specific.
-TONE: Crisp and direct. Max 15 words per bullet. No filler. Write like a founder who reads fast.
-Each bullet MUST end with a "Read more" link using the source URL from the research report.
+STRICT RULES — no exceptions:
+- Use ONLY the news and URLs from the research report above. Do not add, invent, or assume any information.
+- Every "Read more →" link must use the EXACT URL from the research report. Never generate a URL yourself.
+- If a company has no news in the research report, write "No news this week." — do not fill in placeholder content.
+- Bullets are factual headlines only — no commentary on what it means, no analysis, no opinion.
+- Max 15 words per bullet.
+
 Return ONLY the JSON object, no markdown fences.""",
             expected_output='A JSON object with "subject" and "html" keys containing a polished HTML newsletter.',
             agent=self.writer(),

@@ -1,14 +1,22 @@
 import os
 import json
 import requests
+import xml.etree.ElementTree as ET
 from crewai.tools import tool
 
 MCP_URL = "https://valuecart-email-mcp-production.up.railway.app/mcp/valuecart2026"
 
+RSS_FEEDS = {
+    "Inc42": "https://inc42.com/feed/",
+    "YourStory": "https://yourstory.com/feed",
+    "Entrackr": "https://entrackr.com/feed/",
+    "Mint": "https://www.livemint.com/rss/news",
+}
+
 
 @tool("Search recent news")
 def search_news(query: str) -> str:
-    """Search Google News for recent articles about a company or topic (past 7 days)."""
+    """Search Google News for recent articles about a company or topic (past 7 days). Returns real articles with verified URLs only."""
     api_key = os.getenv("SERPER_API_KEY")
     if not api_key:
         return "ERROR: SERPER_API_KEY not set."
@@ -25,14 +33,49 @@ def search_news(query: str) -> str:
             return "No recent news found."
         results = []
         for item in items:
+            url = item.get("link", "")
+            if not url:
+                continue
             results.append(
                 f"TITLE: {item.get('title', '')}\n"
                 f"SOURCE: {item.get('source', '')} | DATE: {item.get('date', '')}\n"
-                f"SNIPPET: {item.get('snippet', '')}"
+                f"SNIPPET: {item.get('snippet', '')}\n"
+                f"URL: {url}"
             )
-        return "\n\n---\n\n".join(results)
+        return "\n\n---\n\n".join(results) if results else "No recent news found."
     except Exception as e:
         return f"Search failed: {e}"
+
+
+@tool("Fetch RSS news feeds")
+def fetch_rss_news(company: str) -> str:
+    """Fetch recent news about a company from Indian business RSS feeds (Inc42, YourStory, Entrackr, Mint). Returns real articles with verified URLs only."""
+    results = []
+    for source, url in RSS_FEEDS.items():
+        try:
+            resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            root = ET.fromstring(resp.content)
+            items = root.findall(".//item")
+            for item in items[:30]:
+                title = item.findtext("title", "")
+                link = item.findtext("link", "")
+                desc = item.findtext("description", "")
+                pub_date = item.findtext("pubDate", "")
+                if company.lower() in title.lower() or company.lower() in desc.lower():
+                    if link:
+                        results.append(
+                            f"TITLE: {title}\n"
+                            f"SOURCE: {source} | DATE: {pub_date}\n"
+                            f"SNIPPET: {desc[:200]}\n"
+                            f"URL: {link}"
+                        )
+        except Exception:
+            continue
+
+    if not results:
+        return f"No RSS results found for {company}."
+    return "\n\n---\n\n".join(results[:5])
 
 
 def _send_single_email(to: str, subject: str, body_html: str) -> str:
@@ -73,7 +116,6 @@ def _send_single_email(to: str, subject: str, body_html: str) -> str:
     if result_data and "error" in result_data:
         return f"Failed: {result_data['error']}"
 
-    # Return actual MCP response text
     if result_data:
         content = result_data.get("result", {}).get("content", [])
         if content:
