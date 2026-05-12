@@ -311,16 +311,4 @@ Write the newsletter directly in the send_email call — do not return it as tex
 
 
 if __name__ == "__main__":
-    import schedule
-    import time
-
-    run_time = os.getenv("NEWSLETTER_TIME", "07:00")
-    print(f"Scheduler started. Newsletter fires daily at {run_time} UTC.")
-    schedule.every().day.at(run_time).do(run_newsletter)
-
-    # Run immediately on first start so you can verify it works
     run_newsletter()
-
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
