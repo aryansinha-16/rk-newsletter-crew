@@ -221,7 +221,7 @@ def run_agent(system: str, user_prompt: str) -> str:
     while True:
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=4096,
+            max_tokens=8096,
             system=system,
             tools=TOOLS,
             messages=messages,
