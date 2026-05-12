@@ -1,13 +1,13 @@
 research_task:
   description: >
-    Search for the latest news (past 7 days) on each company in the RK Group watchlist.
+    Search for the latest news (past 2 days) on each company in the RK Group watchlist.
     For each company run a search and collect the top stories.
-    IMPORTANT: Only include articles published within the last 7 days. If an article's date
-    is older than 7 days, skip it entirely — do not include it even if it seems relevant.
+    IMPORTANT: Only include articles published within the last 2 days. If an article's date
+    is older than 2 days, skip it entirely — do not include it even if it seems relevant.
     Return a structured research report: one section per company, 2-4 bullet points each.
     Format: "- [what happened] — [why it matters to RK Group]"
-    If no significant news this week, write "No major news this week." for that company.
-  expected_output: Structured research report with one section per company and 2-4 bullet points each, all from the past 7 days only.
+    If no significant news in the past 2 days, write "No major news today." for that company.
+  expected_output: Structured research report with one section per company and 2-4 bullet points each, all from the past 2 days only.
   agent: researcher
 
 write_task:

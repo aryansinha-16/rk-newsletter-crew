@@ -18,7 +18,7 @@ RSS_FEEDS = {
 
 @tool("Search recent news")
 def search_news(query: str) -> str:
-    """Search Google News for recent articles about a company or topic (past 7 days). Returns real articles with verified URLs only."""
+    """Search Google News for recent articles about a company or topic (past 2 days). Returns real articles with verified URLs only."""
     api_key = os.getenv("SERPER_API_KEY")
     if not api_key:
         return "ERROR: SERPER_API_KEY not set."
@@ -26,7 +26,7 @@ def search_news(query: str) -> str:
         resp = requests.post(
             "https://google.serper.dev/news",
             headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
-            json={"q": query, "num": 5, "tbs": "qdr:w", "gl": "in", "hl": "en"},
+            json={"q": query, "num": 5, "tbs": "qdr:2d", "gl": "in", "hl": "en"},
             timeout=15,
         )
         resp.raise_for_status()
@@ -53,7 +53,7 @@ def search_news(query: str) -> str:
 def fetch_rss_news(company: str) -> str:
     """Fetch recent news about a company from Indian business RSS feeds (Inc42, YourStory, Entrackr, Mint). Returns real articles with verified URLs only."""
     results = []
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=2)
     for source, url in RSS_FEEDS.items():
         try:
             resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
