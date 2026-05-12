@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import anthropic
 
 load_dotenv()
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', errors='replace', buffering=1)
 
 MCP_URL = "https://valuecart-email-mcp-production.up.railway.app/mcp/valuecart2026"
 
