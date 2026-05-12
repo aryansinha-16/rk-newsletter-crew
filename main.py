@@ -297,6 +297,8 @@ STEPS:
    - Header: "RK Group Intelligence" + date
    - Executive Summary: 3 most important things today
    - One section per company with 2-3 bullets: what happened + why it matters
+   - Each bullet MUST end with a "Read more →" hyperlink using the article's URL, e.g.: <a href="URL" style="color:#0066cc;">Read more →</a>
+   - Only include bullets where you have a real URL from the search results — no URL, no bullet
    - Skip companies with no news today (write "No major news today.")
    - Footer: "RK Group Intelligence | {today} | Confidential"
    - Clean white background, Arial font, mobile-friendly inline styles
