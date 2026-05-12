@@ -6,6 +6,10 @@ COMPANIES = [
     "Nike India",
     "Blinkit",
     "Aditya Birla Group",
+    "Cars24",
+    "Scapia",
+    "Smytten",
+    "India China Relations",
 ]
 
 RK_GROUP_CONTEXT = """

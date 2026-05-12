@@ -10,7 +10,7 @@ from rk_newsletter.config import COMPANIES
 
 @CrewBase
 class RkNewsletterCrew:
-    """RK Group Weekly Intelligence Newsletter Crew."""
+    """RK Group Daily Intelligence Newsletter Crew."""
 
     agents: List[BaseAgent]
     tasks: List[Task]
@@ -30,9 +30,10 @@ class RkNewsletterCrew:
             model="anthropic/claude-haiku-4-5-20251001",
             api_key=os.getenv("ANTHROPIC_API_KEY"),
             temperature=0.4,
+            max_tokens=8000,
         )
 
-    def _week_str(self) -> str:
+    def _date_str(self) -> str:
         return datetime.now().strftime("%B %d, %Y")
 
     def _company_list(self) -> str:
@@ -65,46 +66,52 @@ class RkNewsletterCrew:
         return Agent(
             config=self.agents_config["sender"],  # type: ignore[index]
             tools=[send_email],
-            llm=self._llm(),
+            llm=self._writer_llm(),
             verbose=True,
         )
 
     @task
     def research_task(self) -> Task:
-        week_str = self._week_str()
+        date_str = self._date_str()
         company_list = self._company_list()
         return Task(
-            description=f"""Search for the latest news (past 7 days) on each of these companies:
+            description=f"""Search for the latest news (past 24 hours) on each of these companies and topics:
 
 {company_list}
 
-Today is {week_str}.
+Today is {date_str}.
 
-For each company:
+For each company/topic:
 1. Use search_news to find recent Google News articles
 2. Use fetch_rss_news to find articles from Inc42, YourStory, Entrackr, and Mint
-3. Combine the best 2-4 stories per company
+3. Combine the best 2-4 stories per company/topic
 
 STRICT RULES — no exceptions:
 - Only report stories you actually found via the tools. Never invent or assume news.
 - Only include URLs that were returned by the tools. Never generate or guess a URL.
-- If no news found for a company, write exactly: "No news found this week."
+- If no news found for a company/topic, write exactly: "No news found today."
 
-Return a structured research report, one section per company:
+Return a structured research report, one section per company/topic:
 Format per bullet: "- [headline/what happened] | SOURCE: [publication name] | URL: [exact url from tool]"
 """,
-            expected_output="Structured research report: one section per company, 2-4 bullets each with exact source name and URL from the tools.",
+            expected_output="Structured research report: one section per company/topic, 2-4 bullets each with exact source name and URL from the tools.",
             agent=self.researcher(),
         )
 
     @task
     def write_task(self) -> Task:
-        week_str = self._week_str()
+        date_str = self._date_str()
+        company_list = self._company_list()
         return Task(
-            description=f"""Using the research report, write the RK Group Intelligence Newsletter for the week of {week_str}.
+            description=f"""Using the research report, write the RK Group Intelligence Newsletter for {date_str}.
+
+You MUST include a section for EVERY company/topic listed below, in this exact order:
+{company_list}
+
+Even if a company has no news, include its section with "No news today." — do NOT skip any company.
 
 Return a JSON object with exactly two keys:
-1. "subject": "RK Intelligence | Week of {week_str} | [1-line hook from top story]"
+1. "subject": "RK Intelligence | {date_str} | [1-line hook from top story]"
 2. "html": complete HTML email body
 
 Use this exact HTML structure and styling:
@@ -119,12 +126,12 @@ Use this exact HTML structure and styling:
         <!-- HEADER -->
         <tr><td style="background:#1a1a2e;padding:30px 40px;text-align:center">
           <h1 style="color:#ffffff;margin:0;font-size:24px;letter-spacing:2px">RK GROUP INTELLIGENCE</h1>
-          <p style="color:#a0a0c0;margin:8px 0 0;font-size:14px">Week of {week_str}</p>
+          <p style="color:#a0a0c0;margin:8px 0 0;font-size:14px">{date_str}</p>
         </td></tr>
         <!-- EXECUTIVE SUMMARY -->
         <tr><td style="background:#f8f9ff;padding:24px 40px;border-left:4px solid #4a90d9">
           <h2 style="color:#1a1a2e;margin:0 0 12px;font-size:13px;letter-spacing:1px;text-transform:uppercase">Executive Summary</h2>
-          <p style="color:#333;margin:0;font-size:15px;line-height:1.7">[3 sentence summary of the 3 most important things this week]</p>
+          <p style="color:#333;margin:0;font-size:15px;line-height:1.7">[3 sentence summary of the 3 most important things today]</p>
         </td></tr>
         <!-- COMPANY SECTIONS (repeat for each company) -->
         <tr><td style="padding:24px 40px;border-bottom:1px solid #eee">
@@ -136,7 +143,7 @@ Use this exact HTML structure and styling:
         </td></tr>
         <!-- FOOTER -->
         <tr><td style="background:#1a1a2e;padding:20px 40px;text-align:center">
-          <p style="color:#a0a0c0;margin:0;font-size:12px">RK Group Intelligence | Compiled {week_str} | Confidential</p>
+          <p style="color:#a0a0c0;margin:0;font-size:12px">RK Group Intelligence | Compiled {date_str} | Confidential</p>
         </td></tr>
       </table>
     </td></tr>
@@ -145,9 +152,10 @@ Use this exact HTML structure and styling:
 </html>
 
 STRICT RULES — no exceptions:
+- Include ALL companies/topics listed above. Do NOT skip any, even if there is no news.
 - Use ONLY the news and URLs from the research report above. Do not add, invent, or assume any information.
 - Every "Read more →" link must use the EXACT URL from the research report. Never generate a URL yourself.
-- If a company has no news in the research report, write "No news this week." — do not fill in placeholder content.
+- If a company has no news in the research report, write "No news today." — do not fill in placeholder content.
 - Bullets are factual headlines only — no commentary on what it means, no analysis, no opinion.
 - Max 15 words per bullet.
 
