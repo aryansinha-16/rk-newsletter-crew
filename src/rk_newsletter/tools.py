@@ -2,6 +2,8 @@ import os
 import json
 import requests
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 from crewai.tools import tool
 
 MCP_URL = "https://valuecart-email-mcp-production.up.railway.app/mcp/valuecart2026"
@@ -51,6 +53,7 @@ def search_news(query: str) -> str:
 def fetch_rss_news(company: str) -> str:
     """Fetch recent news about a company from Indian business RSS feeds (Inc42, YourStory, Entrackr, Mint). Returns real articles with verified URLs only."""
     results = []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     for source, url in RSS_FEEDS.items():
         try:
             resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
@@ -62,6 +65,12 @@ def fetch_rss_news(company: str) -> str:
                 link = item.findtext("link", "")
                 desc = item.findtext("description", "")
                 pub_date = item.findtext("pubDate", "")
+                try:
+                    article_dt = parsedate_to_datetime(pub_date)
+                    if article_dt < cutoff:
+                        continue
+                except Exception:
+                    pass
                 if company.lower() in title.lower() or company.lower() in desc.lower():
                     if link:
                         results.append(
