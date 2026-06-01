@@ -334,11 +334,15 @@ is about any of these, SKIP it and look for genuinely new developments only:
     last_news_block = ""
     if last_per_company:
         lines = "\n".join(
-            f"- {c}: {v['title']} (sent {v['date']})" for c, v in last_per_company.items()
+            f'- {c} → "No major news today (last major news: {v["title"]})"'
+            for c, v in last_per_company.items()
         )
         last_news_block = f"""
 
-LAST KNOWN STORY PER COMPANY (for the 'no news today' line — see formatting rules):
+NO-NEWS LINES — MANDATORY. For EVERY company below that has no fresh story
+today, you MUST use this EXACT line (you may lightly shorten the recap, but
+keep the "(last major news: ...)" parenthetical). Do not drop it for any
+company. Companies NOT listed here get a plain "No major news today.":
 {lines}
 """
 
@@ -367,7 +371,7 @@ STEPS:
    - One section per company with 2-3 bullets: what happened + why it matters
    - Each bullet MUST end with a "Read more →" hyperlink using the article's URL, e.g.: <a href="URL" style="color:#0066cc;">Read more →</a>
    - Only include bullets where you have a real URL from the search results — no URL, no bullet
-   - For a company with no fresh news today, DO NOT just write "No major news today." Instead, if that company appears in the LAST KNOWN STORY PER COMPANY list above, write: "No major news today (last major news: <short summary of that story>)". Keep the recap to one short clause. If the company is NOT in that list, write plain "No major news today."
+   - For a company with no fresh news today, use the EXACT "no-news line" given for it in the NO-NEWS LINES section above — every company listed there MUST get its "(last major news: ...)" parenthetical, with NO exceptions or omissions. Companies not listed there get a plain "No major news today."
    - Footer: "RK Group Intelligence | {today} | Confidential"
    - Clean white background, Arial font, mobile-friendly inline styles
 3. Send the email to: {recipient_str}
