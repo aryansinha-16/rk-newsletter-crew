@@ -14,9 +14,24 @@ Researches news for a watchlist of Indian companies and emails an HTML newslette
 
 ## Key files
 - `main.py` — entire pipeline: tools, agentic loop, scheduler entry point
+- `history.py` — GitHub-backed sent-story memory (dedup across runs)
 - `Dockerfile` — `python:3.12-slim`, installs `requirements.txt`, runs `python main.py`
 - `railway.json` — builder: DOCKERFILE
 - `requirements.txt` — anthropic, requests, python-dotenv
+
+## Story de-duplication (no repeats across days)
+Railway containers are ephemeral, so sent-story history lives in the repo as
+`sent_history.json`, read/written via the GitHub Contents API (`history.py`).
+- Each run loads the last 10 days of sent headlines, normalizes them to a loose
+  key (sorted significant words), and: (a) pre-filters search/RSS results that
+  match, and (b) passes the headlines to the model as a "DO NOT REPEAT" list —
+  catches the same story even from a different outlet (story-level dedup).
+- After sending, the URLs in the email's `href`s are matched back to candidate
+  titles and appended to `sent_history.json` (pruned to 10 days).
+- Requires env var `GITHUB_TOKEN` (fine-grained PAT, contents:write on the repo).
+  Without it the script still runs but with no dedup memory (logs a warning).
+- Search window tightened from `qdr:2d` → `qdr:1d`; RSS now SKIPS articles with
+  unparseable pubDate (previously kept them, leaking stale news).
 
 ## Companies watched
 Amazon India, Flipkart, Myntra, PharmEasy, Nike India, Blinkit, Aditya Birla Group, Cars24, Scapia, Smytten, India China Relations
@@ -24,7 +39,7 @@ Amazon India, Flipkart, Myntra, PharmEasy, Nike India, Blinkit, Aditya Birla Gro
 ## Railway deployment
 - Repo: `aryansinha-16/rk-newsletter-crew` (master branch)
 - Service: `rk-newsletter-crew` on `grand-elegance` project
-- Env vars needed: `ANTHROPIC_API_KEY`, `SERPER_API_KEY`, `NEWSLETTER_RECIPIENTS`
+- Env vars needed: `ANTHROPIC_API_KEY`, `SERPER_API_KEY`, `NEWSLETTER_RECIPIENTS`, `GITHUB_TOKEN`
 - Cron: set in Railway Settings → Deploy → Cron Schedule (e.g. `30 2 * * *` = 8 AM IST)
 - Script runs and exits (no infinite loop) — Railway cron handles scheduling
 

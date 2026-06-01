@@ -7,6 +7,7 @@ Plain Python + Anthropic API (no CrewAI)
 
 import os
 import sys
+import re
 import json
 import requests
 import xml.etree.ElementTree as ET
@@ -14,6 +15,8 @@ from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 from dotenv import load_dotenv
 import anthropic
+
+import history as hist
 
 load_dotenv()
 sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', errors='replace', buffering=1)
@@ -49,6 +52,22 @@ RSS_FEEDS = {
 }
 
 # ---------------------------------------------------------------------------
+# Run-scoped state
+# ---------------------------------------------------------------------------
+
+# Every article surfaced this run, keyed by URL → title. Used to map the URLs
+# that end up in the sent email back to their headlines for the history store.
+CANDIDATES: dict[str, str] = {}
+
+# Stories actually included in the email that went out (filled by _send_email).
+SENT_STORIES: list[dict] = []
+
+# Normalized headline keys already emailed in the retention window. Used to
+# pre-filter search/RSS results so the model never even sees old stories.
+SENT_KEYS: set[str] = set()
+
+
+# ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
 
@@ -60,7 +79,7 @@ def _search_news(query: str) -> str:
         resp = requests.post(
             "https://google.serper.dev/news",
             headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
-            json={"q": query, "num": 5, "tbs": "qdr:2d", "gl": "in", "hl": "en"},
+            json={"q": query, "num": 5, "tbs": "qdr:1d", "gl": "in", "hl": "en"},
             timeout=15,
         )
         resp.raise_for_status()
@@ -72,6 +91,10 @@ def _search_news(query: str) -> str:
             url = item.get("link", "")
             if not url:
                 continue
+            title = item.get("title", "")
+            if hist.normalize_headline(title) in SENT_KEYS:
+                continue  # already emailed in the last 10 days
+            CANDIDATES[url] = title
             results.append(
                 f"TITLE: {item.get('title', '')}\n"
                 f"SOURCE: {item.get('source', '')} | DATE: {item.get('date', '')}\n"
@@ -101,9 +124,12 @@ def _fetch_rss_news(company: str) -> str:
                     if parsedate_to_datetime(pub_date) < cutoff:
                         continue
                 except Exception:
-                    pass
+                    continue  # unparseable date → can't confirm it's recent, skip it
                 if company.lower() in title.lower() or company.lower() in desc.lower():
                     if link:
+                        if hist.normalize_headline(title) in SENT_KEYS:
+                            continue  # already emailed in the last 10 days
+                        CANDIDATES[link] = title
                         results.append(
                             f"TITLE: {title}\n"
                             f"SOURCE: {source} | DATE: {pub_date}\n"
@@ -116,6 +142,13 @@ def _fetch_rss_news(company: str) -> str:
 
 
 def _send_email(to: str, subject: str, body_html: str) -> str:
+    # Record which stories actually made it into the email so we can remember
+    # them and skip them on future runs. Match the hrefs back to candidate titles.
+    for href in re.findall(r'href=["\']([^"\']+)["\']', body_html):
+        title = CANDIDATES.get(href)
+        if title:
+            SENT_STORIES.append({"title": title, "url": href})
+
     recipients = [r.strip() for r in to.split(",") if r.strip()]
     results = []
     for recipient in recipients:
@@ -267,7 +300,9 @@ def run_newsletter():
     recipients_env = os.getenv("NEWSLETTER_RECIPIENTS", "aryan@valuecart.in")
     recipients = [r.strip() for r in recipients_env.split(",") if r.strip()]
     recipient_str = ", ".join(recipients)
-    today = datetime.now().strftime("%B %d, %Y")
+    now = datetime.now()
+    today = now.strftime("%B %d, %Y")
+    today_iso = now.strftime("%Y-%m-%d")
     company_list = "\n".join(f"- {c}" for c in COMPANIES)
 
     print(f"\n{'='*60}")
@@ -276,10 +311,29 @@ def run_newsletter():
     print(f"Recipients: {recipient_str}")
     print(f"{'='*60}\n")
 
+    # Load what we've already sent (last 10 days) so we don't repeat stories.
+    history_entries, history_sha = hist.load_history()
+    SENT_KEYS.update(hist.sent_keys(history_entries))
+    already_covered = hist.recent_titles(history_entries, today_iso)
+    print(f"  [history] {len(already_covered)} stories covered in the last 10 days.")
+
+    exclusion_block = ""
+    if already_covered:
+        listed = "\n".join(f"- {t}" for t in already_covered)
+        exclusion_block = f"""
+
+ALREADY COVERED — DO NOT REPEAT THESE STORIES (sent in the last 10 days).
+This includes the same story reported by a different outlet. If a search result
+is about any of these, SKIP it and look for genuinely new developments only:
+{listed}
+"""
+
     system = (
         "You are an AI that produces a daily business intelligence newsletter for RK Group. "
         "You have tools to search news and send email. Be concise and factual. "
-        "Only include news from the past 2 days. If no recent news exists for a company, say so."
+        "Only include genuinely NEW news from the past day. Never repeat a story that was "
+        "already covered in a previous newsletter, even if a different outlet reported it. "
+        "If no fresh news exists for a company, say 'No major news today.'"
     )
 
     prompt = f"""Today is {today}. Produce and send the RK Group Daily Intelligence Newsletter.
@@ -289,9 +343,9 @@ COMPANIES TO RESEARCH:
 
 RK GROUP CONTEXT:
 {RK_GROUP_CONTEXT}
-
+{exclusion_block}
 STEPS:
-1. For each company, use search_news and fetch_rss_news to find news from the past 2 days.
+1. For each company, use search_news and fetch_rss_news to find news from the past day. The tools only return stories not already sent, but if a result clearly matches an ALREADY COVERED item above, skip it anyway.
 2. Write a clean HTML newsletter email with:
    - Subject: "RK Intelligence | {today} | [1-line hook from top story]"
    - Header: "RK Group Intelligence" + date
@@ -310,6 +364,12 @@ Write the newsletter directly in the send_email call — do not return it as tex
     print("\nDone.")
     if result:
         print(result)
+
+    # Remember the stories that actually went out, so tomorrow's run skips them.
+    if SENT_STORIES:
+        hist.save_history(history_entries, SENT_STORIES, history_sha, today_iso)
+    else:
+        print("  [history] no stories captured from the email — nothing to save.")
 
 
 if __name__ == "__main__":
