@@ -328,6 +328,20 @@ is about any of these, SKIP it and look for genuinely new developments only:
 {listed}
 """
 
+    # The most recent story we sent per company, so the "no news today" line can
+    # remind the reader what the last development was.
+    last_per_company = hist.last_story_per_company(history_entries, COMPANIES)
+    last_news_block = ""
+    if last_per_company:
+        lines = "\n".join(
+            f"- {c}: {v['title']} (sent {v['date']})" for c, v in last_per_company.items()
+        )
+        last_news_block = f"""
+
+LAST KNOWN STORY PER COMPANY (for the 'no news today' line — see formatting rules):
+{lines}
+"""
+
     system = (
         "You are an AI that produces a daily business intelligence newsletter for RK Group. "
         "You have tools to search news and send email. Be concise and factual. "
@@ -343,7 +357,7 @@ COMPANIES TO RESEARCH:
 
 RK GROUP CONTEXT:
 {RK_GROUP_CONTEXT}
-{exclusion_block}
+{exclusion_block}{last_news_block}
 STEPS:
 1. For each company, use search_news and fetch_rss_news to find news from the past day. The tools only return stories not already sent, but if a result clearly matches an ALREADY COVERED item above, skip it anyway.
 2. Write a clean HTML newsletter email with:
@@ -353,7 +367,7 @@ STEPS:
    - One section per company with 2-3 bullets: what happened + why it matters
    - Each bullet MUST end with a "Read more →" hyperlink using the article's URL, e.g.: <a href="URL" style="color:#0066cc;">Read more →</a>
    - Only include bullets where you have a real URL from the search results — no URL, no bullet
-   - Skip companies with no news today (write "No major news today.")
+   - For a company with no fresh news today, DO NOT just write "No major news today." Instead, if that company appears in the LAST KNOWN STORY PER COMPANY list above, write: "No major news today (last major news: <short summary of that story>)". Keep the recap to one short clause. If the company is NOT in that list, write plain "No major news today."
    - Footer: "RK Group Intelligence | {today} | Confidential"
    - Clean white background, Arial font, mobile-friendly inline styles
 3. Send the email to: {recipient_str}
@@ -367,7 +381,7 @@ Write the newsletter directly in the send_email call — do not return it as tex
 
     # Remember the stories that actually went out, so tomorrow's run skips them.
     if SENT_STORIES:
-        hist.save_history(history_entries, SENT_STORIES, history_sha, today_iso)
+        hist.save_history(history_entries, SENT_STORIES, history_sha, today_iso, COMPANIES)
     else:
         print("  [history] no stories captured from the email — nothing to save.")
 

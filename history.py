@@ -67,21 +67,69 @@ def recent_titles(entries: list, today_iso: str, days: int = RETENTION_DAYS) -> 
     return [e["title"] for e in entries if e.get("date", "") >= cutoff]
 
 
+def last_story_per_company(entries: list, companies: list[str]) -> dict[str, dict]:
+    """Most recent story we sent for each company → {company: {date, title}}.
+
+    Matches a story to a company by name appearing in the title, or by the
+    entry's stored `company` field. Used to show 'last major news: ...' next
+    to a company that has nothing new today.
+    """
+    # If entries carry explicit company tags, trust them exclusively — fuzzy
+    # title matching causes cross-company bleed (e.g. "Amazon" mentioned inside
+    # a Blinkit headline). Only fall back to title matching for untagged data.
+    any_tagged = any(e.get("company") for e in entries)
+
+    result: dict[str, dict] = {}
+    for company in companies:
+        needle = company.lower().replace(" india", "").replace(" group", "").strip()
+        best = None
+        for e in entries:
+            if any_tagged:
+                if e.get("company", "").lower() != company.lower():
+                    continue
+            else:
+                if not (needle and needle in e.get("title", "").lower()):
+                    continue
+            if best is None or e.get("date", "") >= best.get("date", ""):
+                best = e
+        if best:
+            result[company] = {"date": best["date"], "title": best["title"]}
+    return result
+
+
 def sent_keys(entries: list) -> set[str]:
     return {e.get("key", "") for e in entries if e.get("key")}
 
 
-def save_history(entries: list, new_stories: list[dict], sha: str | None, today_iso: str) -> None:
+def _match_company(title: str, companies: list[str]) -> str:
+    """Best-guess company for a story title, or '' if none matches."""
+    low = title.lower()
+    for company in companies:
+        needle = company.lower().replace(" india", "").replace(" group", "").strip()
+        if needle and needle in low:
+            return company
+    return ""
+
+
+def save_history(entries: list, new_stories: list[dict], sha: str | None,
+                 today_iso: str, companies: list[str] | None = None) -> None:
     """Append new_stories, prune > RETENTION_DAYS old, write back to GitHub."""
     headers = _headers()
     if not headers:
         return
 
+    companies = companies or []
     seen = sent_keys(entries)
     for s in new_stories:
         key = normalize_headline(s["title"])
         if key and key not in seen:
-            entries.append({"date": today_iso, "title": s["title"], "url": s["url"], "key": key})
+            entries.append({
+                "date": today_iso,
+                "title": s["title"],
+                "url": s["url"],
+                "key": key,
+                "company": _match_company(s["title"], companies),
+            })
             seen.add(key)
 
     cutoff = _shift_iso(today_iso, -RETENTION_DAYS)
