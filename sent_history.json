@@ -1,40 +1,5 @@
 [
   {
-    "date": "2026-06-20",
-    "company": "Amazon India",
-    "title": "Amazon India Beautyverse 2026 beauty e-commerce launch plus Prime Day 2026 July 4 membership price drop to Rs 999",
-    "url": "",
-    "key": "2026 amazon beauty beautyverse commerce drop india july launch membership plus price prime"
-  },
-  {
-    "date": "2026-06-20",
-    "company": "Flipkart",
-    "title": "Flipkart GlamUp 2026 fashion event with celebrity activations",
-    "url": "",
-    "key": "2026 activations celebrity event fashion flipkart glamup with"
-  },
-  {
-    "date": "2026-06-20",
-    "company": "Myntra",
-    "title": "Myntra EORS 1.3X YoY growth first-time shoppers 40 percent D2C brand demand growth fashion e-commerce leadership",
-    "url": "",
-    "key": "brand commerce demand eors fashion first growth leadership myntra percent shoppers time"
-  },
-  {
-    "date": "2026-06-20",
-    "company": "Nike India",
-    "title": "Bata appoints ex-Nike retail head as CEO plus Nike India Bengaluru tech center expansion 121 crore 5-year lease",
-    "url": "",
-    "key": "appoints bata bengaluru center crore expansion head india lease nike plus retail tech year"
-  },
-  {
-    "date": "2026-06-20",
-    "company": "Aditya Birla Group",
-    "title": "Grasim appoints Sangeeta Tanwani as Textiles CEO plus 1.8B Shell Sprng Energy acquisition nearing close",
-    "url": "",
-    "key": "acquisition appoints close energy grasim nearing plus sangeeta shell sprng tanwani textiles"
-  },
-  {
     "date": "2026-06-21",
     "company": "Myntra",
     "title": "Myntra EORS 30 percent YoY surge first-time shoppers strong D2C brand performance",
@@ -180,5 +145,33 @@
     "url": "https://inc42.com/features/flipkart-amazon-flex-logistics-muscles-will-it-bring-new-growth-levers/",
     "key": "amazon bring flex flipkart growth levers logistics muscles will",
     "company": "Amazon India"
+  },
+  {
+    "date": "2026-07-01",
+    "title": "Prime Day 2026: Up to 80% off across electronics, fashion and more",
+    "url": "https://www.aboutamazon.in/news/retail/prime-day-2026-india-deals",
+    "key": "2026 across electronics fashion more prime",
+    "company": ""
+  },
+  {
+    "date": "2026-07-01",
+    "title": "Flipkart GOAT Sale 2026 - iPhone 17 Pro Max, iPhone Air, iPhone 15 and More to Get Major Discounts from July 4",
+    "url": "https://www.mymobileindia.com/flipkart-goat-sale-2026-iphone-17-pro-max-iphone-air-iphone-15-and-more-to-get-major-discounts-from-july-4/",
+    "key": "2026 discounts flipkart from goat iphone july major more sale",
+    "company": "Flipkart"
+  },
+  {
+    "date": "2026-07-01",
+    "title": "CCI clears RCB's $1.78-billion buyout by Aditya Birla Group, ToI consortium",
+    "url": "https://m.economictimes.com/news/sports/cci-clears-rcbs-1-78-billion-buyout-by-aditya-birla-group-toi-consortium/articleshow/132100016.cms",
+    "key": "aditya billion birla buyout clears consortium group",
+    "company": "Aditya Birla Group"
+  },
+  {
+    "date": "2026-07-01",
+    "title": "Indian envoy holds talks with senior Chinese commerce ministry official on trade ties",
+    "url": "https://m.economictimes.com/news/economy/foreign-trade/indian-envoy-holds-talks-with-senior-chinese-commerce-ministry-official-on-trade-ties/articleshow/132074908.cms",
+    "key": "chinese commerce envoy holds indian ministry official senior talks ties trade with",
+    "company": ""
   }
 ]
